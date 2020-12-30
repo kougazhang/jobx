@@ -1,5 +1,5 @@
 package trigger
 
 type Trigger interface {
-	CanStart() (bool, error)
+    CanStart(p ...interface{}) (bool, error)
 }

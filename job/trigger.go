@@ -20,13 +20,13 @@ func (t Trigger) IsValidRelation() bool {
     return t.Relation == TriggerRelationAnd || t.Relation == TriggerRelationOr
 }
 
-func (t Trigger) paincInvalidRelation() {
+func (t Trigger) panicInvalidRelation() {
     panic(fmt.Sprintf("trigger relation %s invalid", t.Relation))
 }
 
 func (t Trigger) Trigger() (can bool, err error) {
     if len(t.Conditions) > 1 && !t.IsValidRelation() {
-        t.paincInvalidRelation()
+        t.panicInvalidRelation()
     }
 
     for _, conditionFn := range t.Conditions {
