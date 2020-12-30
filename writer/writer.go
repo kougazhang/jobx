@@ -1,6 +1,6 @@
 package writer
 
-import "jobx/io"
+import "github.com/kougazhang/jobx/io"
 
 type IWriter interface {
 	io.IO

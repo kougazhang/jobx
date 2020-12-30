@@ -1,6 +1,6 @@
 package job
 
-import "jobx/lib"
+import "github.com/kougazhang/jobx/lib"
 
 type Retry struct {
 	Trigger            lib.RetryInfo

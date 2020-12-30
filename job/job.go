@@ -1,13 +1,13 @@
 package job
 
 import (
+    "github.com/kougazhang/jobx/io"
+    "github.com/kougazhang/jobx/lib"
+    "github.com/kougazhang/jobx/plugins"
+    "github.com/kougazhang/jobx/reader"
+    "github.com/kougazhang/jobx/writer"
     "github.com/pkg/errors"
     log "github.com/sirupsen/logrus"
-    "jobx/io"
-    "jobx/lib"
-    "jobx/plugins"
-    "jobx/reader"
-    "jobx/writer"
     "time"
 )
 
@@ -87,9 +87,11 @@ func (j *Job) run() error {
 
     afterReaders, err := io.ChainDst(j.ReaderDst, j.Plugins.AfterReaders)
 
-    err = j.Writer.Copy(afterReaders, j.WriterDst)
-    if err != nil {
-        return errors.Wrap(err, "IWriter.Write")
+    if j.Writer.IWriter != nil {
+        err = j.Writer.Copy(afterReaders, j.WriterDst)
+        if err != nil {
+            return errors.Wrap(err, "IWriter.Write")
+        }
     }
 
     return nil

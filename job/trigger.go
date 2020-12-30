@@ -3,7 +3,7 @@ package job
 import (
 	"fmt"
 	"github.com/pkg/errors"
-	"jobx/trigger"
+	"github.com/kougazhang/jobx/trigger"
 )
 
 const (

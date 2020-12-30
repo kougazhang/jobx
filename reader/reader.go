@@ -1,6 +1,6 @@
 package reader
 
-import "jobx/io"
+import "github.com/kougazhang/jobx/io"
 
 type IReader interface {
 	io.IO

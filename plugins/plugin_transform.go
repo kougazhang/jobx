@@ -2,8 +2,8 @@ package plugins
 
 import (
     "github.com/pkg/errors"
-    "jobx/io"
-    "jobx/lib"
+    "github.com/kougazhang/jobx/io"
+    "github.com/kougazhang/jobx/lib"
     "time"
 )
 
