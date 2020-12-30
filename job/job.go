@@ -1,9 +1,8 @@
 package job
 
 import (
-    "github.com/kougazhang/jobx/io"
+    "github.com/kougazhang/jobx/hook"
     "github.com/kougazhang/jobx/lib"
-    "github.com/kougazhang/jobx/plugins"
     "github.com/kougazhang/jobx/reader"
     "github.com/kougazhang/jobx/writer"
     "github.com/pkg/errors"
@@ -15,36 +14,50 @@ type Job struct {
     Log     *log.Entry
     TraceID string
 
-    // 触发任务
+    // trigger Job
     TriggerConditions *Trigger
 
-    // 读取
+    // job read
     reader.Reader
 
-    // 输出
+    // job write
     Writer *writer.Writer
 
-    Retry Retry
+    // retry for io
+    IORetry Retry
 
-    Plugins *plugins.Plugins
+    Hook *hook.Hook
 }
 
 type Options struct {
     Writer  *writer.Writer
-    Plugins *plugins.Plugins
+    Hook    *hook.Hook
     Trigger *Trigger
+    IORetry Retry
 }
 
 func newJob(traceID string, reader reader.Reader, trigger *Trigger, writer *writer.Writer, retry Retry,
-    plugins *plugins.Plugins) Job {
+    hook *hook.Hook) Job {
     return Job{
         Log:               nil,
         TraceID:           traceID,
         TriggerConditions: trigger,
         Reader:            reader,
         Writer:            writer,
-        Retry:             retry,
-        Plugins:           plugins,
+        IORetry:           retry,
+        Hook:              hook,
+    }
+}
+
+func DefaultRetry() Retry {
+    retryInfo := lib.RetryInfo{
+        Times:    3,
+        Interval: 1 * time.Second,
+    }
+    return Retry{
+        Trigger:            retryInfo,
+        Job:                retryInfo,
+        GetTransformStatus: retryInfo,
     }
 }
 
@@ -52,26 +65,19 @@ func NewJob(traceID string, reader reader.Reader, opts ...Options) Job {
 
     var (
         write   *writer.Writer
-        plugin  *plugins.Plugins
+        hooks   *hook.Hook
         trigger *Trigger
+        retry   = DefaultRetry()
     )
+
     for _, opt := range opts {
         write = opt.Writer
-        plugin = opt.Plugins
+        hooks = opt.Hook
         trigger = opt.Trigger
+        retry = opt.IORetry
     }
 
-    retryInfo := lib.RetryInfo{
-        Times:    3,
-        Interval: 1 * time.Second,
-    }
-    retry := Retry{
-        Trigger:            retryInfo,
-        Job:                retryInfo,
-        GetTransformStatus: retryInfo,
-    }
-
-    return newJob(traceID, reader, trigger, write, retry, plugin)
+    return newJob(traceID, reader, trigger, write, retry, hooks)
 }
 
 func (j *Job) InitJob() error {
@@ -80,7 +86,7 @@ func (j *Job) InitJob() error {
 }
 
 func (j Job) Trigger() (bool, error) {
-    res, err := lib.Retry(j.Retry.Trigger, func() (interface{}, error) {
+    res, err := lib.Retry(j.IORetry.Trigger, func() (interface{}, error) {
         return j.TriggerConditions.Trigger()
     })
     return res.(bool), err
@@ -91,21 +97,33 @@ func (j Job) Run() error {
 }
 
 func (j Job) runWithRetry() error {
-    return lib.RetryOnlyReturnErr(j.Retry.Job, func() error {
+    return lib.RetryOnlyReturnErr(j.IORetry.Job, func() error {
         return j.run()
     })
 }
 
 func (j *Job) run() error {
-    err := j.Reader.Copy(j.ReaderSrc, j.ReaderDst)
+    defer func() {
+        err := hook.ChainDefer(j.Hook.Defer)
+        if err != nil {
+            j.Log.Errorf("ChainDefer %v", err)
+        }
+    }()
+
+    src, dst, err := hook.Chain(j.ReaderDst, j.ReaderDst, j.Hook.BeforeReader)
+    if err != nil {
+        return errors.Wrap(err, "j.Hook.BeforeReader")
+    }
+
+    err = j.Reader.Copy(src, dst)
     if err != nil {
         return errors.Wrap(err, "IReader.IO")
     }
 
-    afterReaders, err := io.ChainDst(j.ReaderDst, j.Plugins.AfterReaders)
+    afterReader, err := hook.ChainDst(j.ReaderDst, j.Hook.AfterReader)
 
     if j.Writer != nil {
-        err = j.Writer.Copy(afterReaders, j.Writer.WriterDst)
+        err = j.Writer.Copy(afterReader, j.Writer.WriterDst)
         if err != nil {
             return errors.Wrap(err, "IWriter.Write")
         }
