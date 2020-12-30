@@ -16,7 +16,7 @@ type Job struct {
     TraceID string
 
     // 触发任务
-    TriggerConditions Trigger
+    TriggerConditions *Trigger
 
     // 读取
     reader.Reader
@@ -32,9 +32,10 @@ type Job struct {
 type Options struct {
     Writer  *writer.Writer
     Plugins *plugins.Plugins
+    Trigger *Trigger
 }
 
-func newJob(traceID string, reader reader.Reader, trigger Trigger, writer *writer.Writer, retry Retry,
+func newJob(traceID string, reader reader.Reader, trigger *Trigger, writer *writer.Writer, retry Retry,
     plugins *plugins.Plugins) Job {
     return Job{
         Log:               nil,
@@ -47,15 +48,17 @@ func newJob(traceID string, reader reader.Reader, trigger Trigger, writer *write
     }
 }
 
-func NewJob(traceID string, reader reader.Reader, trigger Trigger, opts ...Options) Job {
+func NewJob(traceID string, reader reader.Reader, opts ...Options) Job {
 
     var (
-        write  *writer.Writer
-        plugin *plugins.Plugins
+        write   *writer.Writer
+        plugin  *plugins.Plugins
+        trigger *Trigger
     )
     for _, opt := range opts {
         write = opt.Writer
         plugin = opt.Plugins
+        trigger = opt.Trigger
     }
 
     retryInfo := lib.RetryInfo{
