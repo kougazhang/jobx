@@ -1,4 +1,4 @@
-module jobx
+module github.com/kougazhang/jobx
 
 go 1.15
 
