@@ -22,15 +22,20 @@ type Job struct {
     reader.Reader
 
     // 输出
-    writer.Writer
+    Writer *writer.Writer
 
     Retry Retry
 
-    Plugins plugins.Plugins
+    Plugins *plugins.Plugins
 }
 
-func NewJob(traceID string, reader reader.Reader, trigger Trigger, writer writer.Writer, retry Retry,
-    plugins plugins.Plugins) Job {
+type Options struct {
+    Writer  *writer.Writer
+    Plugins *plugins.Plugins
+}
+
+func newJob(traceID string, reader reader.Reader, trigger Trigger, writer *writer.Writer, retry Retry,
+    plugins *plugins.Plugins) Job {
     return Job{
         Log:               nil,
         TraceID:           traceID,
@@ -42,8 +47,16 @@ func NewJob(traceID string, reader reader.Reader, trigger Trigger, writer writer
     }
 }
 
-func NewJobWithDefault(traceID string, reader reader.Reader, trigger Trigger, writer writer.Writer,
-    plugins plugins.Plugins) Job {
+func NewJob(traceID string, reader reader.Reader, trigger Trigger, opts ...Options) Job {
+
+    var (
+        write  *writer.Writer
+        plugin *plugins.Plugins
+    )
+    for _, opt := range opts {
+        write = opt.Writer
+        plugin = opt.Plugins
+    }
 
     retryInfo := lib.RetryInfo{
         Times:    3,
@@ -54,7 +67,8 @@ func NewJobWithDefault(traceID string, reader reader.Reader, trigger Trigger, wr
         Job:                retryInfo,
         GetTransformStatus: retryInfo,
     }
-    return NewJob(traceID, reader, trigger, writer, retry, plugins)
+
+    return newJob(traceID, reader, trigger, write, retry, plugin)
 }
 
 func (j *Job) InitJob() error {
@@ -87,8 +101,8 @@ func (j *Job) run() error {
 
     afterReaders, err := io.ChainDst(j.ReaderDst, j.Plugins.AfterReaders)
 
-    if j.Writer.IWriter != nil {
-        err = j.Writer.Copy(afterReaders, j.WriterDst)
+    if j.Writer != nil {
+        err = j.Writer.Copy(afterReaders, j.Writer.WriterDst)
         if err != nil {
             return errors.Wrap(err, "IWriter.Write")
         }
